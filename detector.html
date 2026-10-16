@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎯 감지기 전용 계측 모니터 (Detector Wave Superposition & Intensity)</title>
+  <style>
+    :root {
+      --bg-dark: #060911;
+      --card-bg: #111827;
+      --panel-border: #1e293b;
+      --accent-blue: #38bdf8;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 24px;
+      gap: 16px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 12px;
+    }
+    header h1 {
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sync-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .monitor-grid {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 20px;
+      flex: 1;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    canvas {
+      background: #04070d;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      max-width: 100%;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .metric-box {
+      background: #0d1524;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .metric-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--accent-blue);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎯 감지기 전용 사인파 중첩 및 빛의 세기 화면 (External Detector Screen)</h1>
+    <span class="sync-badge">● 메인 실험 벤치와 실시간 동기화 중</span>
+  </header>
+
+  <div class="monitor-grid">
+    <div style="text-align: center;">
+      <canvas id="detectorCanvas" width="290" height="290"></canvas>
+      <div style="margin-top: 8px; font-size: 0.8rem; color: #94a3b8;">2D CCD 간섭 무늬 영상</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+      <canvas id="chartCanvas" width="580" height="290"></canvas>
+      <div style="margin-top: 8px; font-size: 0.8rem; color: #94a3b8;">
+        감지기 입사 사인파 중첩: <strong style="color:#38bdf8;">M1 반사파(E₁)</strong> + <strong style="color:#fbbf24;">M2 반사파(E₂)</strong> = <strong style="color:#10b981;">합산 사인파(E₁+E₂)</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric-box">
+      <div class="metric-label">감지기 중심 빛의 세기 I(0,0)</div>
+      <div class="metric-value" id="valCenterIntensity">100.0%</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">간섭 가시도 (Visibility V)</div>
+      <div class="metric-value" id="valVisibility">1.000</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">총 무늬 이동수 (ΔN)</div>
+      <div class="metric-value" id="valFringeShift">+0.000 Fringes</div>
+    </div>
+    <div class="metric-box">
+      <div class="metric-label">현재 입사 레이저 파장 (λ)</div>
+      <div class="metric-value" id="valWavelength">632.8 nm</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createExperimentStore } from './src/state/ExperimentStore.js';
+    import { renderDetectorCanvas } from './src/renderers/DetectorRenderer.js';
+    import { renderIntensityChart } from './src/renderers/IntensityChartRenderer.js';
+
+    const store = createExperimentStore();
+    const detectorCtx = document.getElementById('detectorCanvas').getContext('2d');
+    const chartCtx = document.getElementById('chartCanvas').getContext('2d');
+
+    const valCenterIntensity = document.getElementById('valCenterIntensity');
+    const valVisibility = document.getElementById('valVisibility');
+    const valFringeShift = document.getElementById('valFringeShift');
+    const valWavelength = document.getElementById('valWavelength');
+
+    let timePhase = 0;
+
+    function syncStatic(state, metrics) {
+      renderDetectorCanvas(detectorCtx, state);
+      valCenterIntensity.textContent = metrics.centerIntensityLabel;
+      valVisibility.textContent = metrics.visibilityLabel;
+      valFringeShift.textContent = metrics.totalFringeShiftLabel;
+      valWavelength.textContent = `${state.config.wavelengthNm.toFixed(1)} nm`;
+      valWavelength.style.color = state.color.rgb;
+    }
+
+    store.subscribe((state, metrics) => {
+      syncStatic(state, metrics);
+    });
+
+    function animate() {
+      timePhase = (timePhase + 0.12) % (Math.PI * 200);
+      renderIntensityChart(chartCtx, store.getState(), { timePhase });
+      requestAnimationFrame(animate);
+    }
+
+    syncStatic(store.getState(), store.getMetrics());
+    store.requestRemoteSync();
+    animate();
+  </script>
+</body>
+</html>

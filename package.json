@@ -1,0 +1,9 @@
+{
+  "name": "michelson-morley-simulator",
+  "version": "1.0.0",
+  "description": "Virtual Michelson-Morley Interferometer Experiment Simulator",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>마이켈슨-몰리 가상 간섭계 실험실 (Michelson-Morley Simulator)</title>
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --card-bg: #111827;
+      --panel-border: #1e293b;
+      --accent-blue: #38bdf8;
+      --accent-amber: #f59e0b;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background-color: #0d1321;
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    header h1 {
+      font-size: 1.12rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header .badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+    .preset-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+    }
+    select {
+      background: #1e293b;
+      color: #f1f5f9;
+      border: 1px solid #334155;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    .main-container {
+      display: grid;
+      grid-template-columns: 1.15fr 1.1fr;
+      grid-template-rows: 1fr auto;
+      gap: 14px;
+      padding: 12px 18px;
+      flex: 1;
+      width: 100%;
+    }
+    .viewport-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+      position: relative;
+    }
+
+    /* 화면 1 전체 화면(전체 뷰 모드) 스타일 */
+    .viewport-card.fullscreen-mode {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9999;
+      border-radius: 0;
+      border: none;
+      background-color: #070b13;
+    }
+    .viewport-card.fullscreen-mode .viewport-body {
+      height: calc(100vh - 46px);
+      padding: 6px 12px;
+    }
+    .viewport-card.fullscreen-mode #benchCanvas {
+      width: 100%;
+      height: calc(100vh - 96px);
+      max-width: 100%;
+      max-height: calc(100vh - 96px);
+      object-fit: contain;
+    }
+
+    .viewport-header {
+      background: #131d31;
+      padding: 9px 16px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+    .viewport-body {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      gap: 8px;
+    }
+    canvas {
+      border-radius: 8px;
+      background: #06090e;
+      border: 1px solid #1e293b;
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+      max-width: 100%;
+      height: auto;
+    }
+    .bench-tooltip-bar {
+      width: 100%;
+      background: #0b111e;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.76rem;
+      color: #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-height: 30px;
+    }
+    .detector-grid {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 12px;
+      width: 100%;
+      align-items: center;
+    }
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      width: 100%;
+      margin-top: 6px;
+    }
+    .metric-item {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid #233044;
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .metric-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .metric-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: monospace;
+      color: #38bdf8;
+    }
+    .controls-panel {
+      grid-column: 1 / -1;
+      background: var(--card-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 14px;
+    }
+    .control-group {
+      background: #0d1524;
+      border: 1px solid #1c273a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .control-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 6px;
+    }
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.8rem;
+    }
+    .control-row label {
+      color: var(--text-muted);
+      flex: 1;
+    }
+    .val-display {
+      font-family: monospace;
+      font-weight: bold;
+      color: #38bdf8;
+      min-width: 72px;
+      text-align: right;
+    }
+    input[type="range"] {
+      flex: 1.4;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+    .btn-step-group {
+      display: flex;
+      gap: 4px;
+    }
+    button {
+      background: #1e293b;
+      color: #f1f5f9;
+      border: 1px solid #334155;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: all 0.15s;
+    }
+    button:hover {
+      background: #334155;
+      border-color: #475569;
+    }
+    button.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      font-weight: bold;
+    }
+    .btn-action-primary {
+      background: #0369a1;
+      border-color: #38bdf8;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .btn-action-primary:hover {
+      background: #0284c7;
+    }
+    .color-chip {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid #ffffff;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    .radio-switch {
+      display: flex;
+      gap: 8px;
+    }
+    .radio-switch label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+
+    /* 전체화면 모드 시 캔버스 상단 부동 조작 패널 */
+    .fullscreen-overlay-bar {
+      display: none;
+      position: absolute;
+      bottom: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      border-radius: 30px;
+      padding: 8px 20px;
+      gap: 12px;
+      align-items: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.65);
+      backdrop-filter: blur(8px);
+      z-index: 10000;
+    }
+    .viewport-card.fullscreen-mode .fullscreen-overlay-bar {
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>
+      🔬 마이켈슨-몰리 가상 간섭계 실험실
+      <span class="badge">Live Wave Simulator</span>
+    </h1>
+    <div class="preset-bar">
+      <span style="color: #94a3b8;">실험 시나리오 프리셋:</span>
+      <select id="selPreset">
+        <option value="constructive_default">1. 표준 보강간섭 (초기 원점 - 합산 진폭 2A)</option>
+        <option value="destructive_quarter_lambda">2. 상쇄간섭 (M1 거울 λ/4 이동 - 합산 사인파 소멸 0A)</option>
+        <option value="linear_tilt_fringes">3. 직선 간섭 줄무늬 (거울 미세 틸트)</option>
+        <option value="historical_ether_1887">4. 1887 고전 에테르 검출 가설 (90° 회전)</option>
+        <option value="einstein_srt_null">5. 특수 상대성 이론 영결과 (Null Result)</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- 뷰포트 A: 광학 벤치 2D 조감도 및 턴테이블 회전 -->
+    <div class="viewport-card" id="cardBench">
+      <div class="viewport-header">
+        <span>📍 [화면 1] 광학 벤치 파동 조감도</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <!-- 시간 정지/재생 버튼 및 속도 조절 -->
+          <button id="btnPauseWave" style="background: #334155; font-weight: 600;">⏸ 시간 정지</button>
+          <span style="font-size: 0.75rem; color: #94a3b8; margin-left: 2px;">파동 속도:</span>
+          <input type="range" id="rngWaveSpeed" min="0" max="0.16" step="0.01" value="0.04" style="width: 75px; accent-color: #38bdf8;" title="파동 진행 속도 조절">
+          <span id="lblTableAngle" style="font-family: monospace; color: #38bdf8; margin-left: 6px;">0.0°</span>
+          <button id="btnFullscreenBench" class="btn-action-primary" title="화면 1을 전체 화면으로 확대">⛶ 전체 화면</button>
+        </div>
+      </div>
+      <div class="viewport-body">
+        <canvas id="benchCanvas" width="760" height="540"></canvas>
+        <div class="bench-tooltip-bar" id="benchTooltip">
+          <span>💡 <strong>인터랙티브 가이드:</strong> 캔버스 위 거울(M1, M2)이나 턴테이블 원판을 마우스로 직접 드래그해 보세요.</span>
+        </div>
+      </div>
+
+      <!-- 전체화면 모드 시 하단 퀵 컨트롤러 바 -->
+      <div class="fullscreen-overlay-bar">
+        <button id="btnFsPauseWave">⏸ 시간 정지</button>
+        <span style="color: #64748b;">|</span>
+        <button id="btnFsM1Sub">M1 ◀ (-λ/4)</button>
+        <button id="btnFsM1Add">M1 ▶ (+λ/4)</button>
+        <span style="color: #64748b;">|</span>
+        <button id="btnFsM2Sub">M2 ◀</button>
+        <button id="btnFsM2Add">M2 ▶</button>
+        <span style="color: #64748b;">|</span>
+        <button id="btnFsRotateToggle">🔄 턴테이블 회전</button>
+        <button id="btnFsRotate90">+90°</button>
+        <span style="color: #64748b;">|</span>
+        <button id="btnFsExit" style="background: #dc2626; border-color: #ef4444; color: white;">✕ 전체화면 종료 (ESC)</button>
+      </div>
+    </div>
+
+    <!-- 뷰포트 B: 감지기 광도 및 파동 중첩 그래프 화면 -->
+    <div class="viewport-card" id="cardDetector">
+      <div class="viewport-header">
+        <span>🎯 [화면 2] 감지기 파동 중첩 그래프 (M1파 + M2파 = 합산 사인파)</span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span id="lblCenterPercent" style="font-family: monospace; color: #10b981;">중심 조도: 100.0%</span>
+          <button id="btnPopoutDetector" title="별도 브라우저 창으로 감지기 계측 화면 분리">🗗 별도 화면 창 열기</button>
+        </div>
+      </div>
+      <div class="viewport-body">
+        <div class="detector-grid">
+          <div style="text-align: center;">
+            <canvas id="detectorCanvas" width="215" height="215"></canvas>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">2D CCD 센서 간섭무늬</div>
+          </div>
+          <div style="display: flex; flex-direction: column; width: 100%;">
+            <canvas id="chartCanvas" width="490" height="245"></canvas>
+            <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px; text-align: center;">
+              감지기 입사 사인파 중첩: <strong style="color:#38bdf8;">M1 반사파(하늘색)</strong> + <strong style="color:#fbbf24;">M2 반사파(황금색)</strong> = <strong style="color:#10b981;">합산 사인파(초록 실선 & ● 마커)</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="metrics-bar">
+          <div class="metric-item">
+            <span class="metric-label">중심 빛의 세기 I</span>
+            <span class="metric-value" id="valCenterIntensity">100.0%</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">간섭 가시도 (V)</span>
+            <span class="metric-value" id="valVisibility">1.000</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">총 무늬 이동 (ΔN)</span>
+            <span class="metric-value" id="valFringeShift">+0.000</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">에테르 무늬 이동</span>
+            <span class="metric-value" id="valEtherShift" style="color: #f59e0b;">+0.0000</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 하단 통합 제어 패널 -->
+    <div class="controls-panel">
+      <!-- 1. 단일 파장 레이저 제어 -->
+      <div class="control-group">
+        <div class="control-title">
+          <span>1. 단일 파장 레이저 (λ 슬라이더)</span>
+          <span id="chipLaserColor" class="color-chip" style="background-color: #ff0000;"></span>
+        </div>
+        <div class="control-row">
+          <label>파장 (380~780nm):</label>
+          <input type="range" id="rngWavelength" min="380" max="780" step="1" value="632.8">
+          <span class="val-display" id="valWavelength">633 nm</span>
+        </div>
+        <div class="control-row" style="justify-content: flex-start; gap: 6px;">
+          <button id="btnLaserRed">적색 (633nm)</button>
+          <button id="btnLaserGreen">녹색 (532nm)</button>
+          <button id="btnLaserBlue">청색 (450nm)</button>
+        </div>
+      </div>
+
+      <!-- 2. 중앙 빔 스플리터 고정 제원 표시 -->
+      <div class="control-group">
+        <div class="control-title">
+          <span>2. 중앙 빔 스플리터 (고정 두께)</span>
+          <span style="font-size: 0.7rem; color: #38bdf8;">단일 50:50 분할기</span>
+        </div>
+        <div class="control-row">
+          <label>투과율 / 반사율:</label>
+          <span class="val-display" style="color: #10b981;">50% / 50%</span>
+        </div>
+        <div class="control-row">
+          <label>유리 두께 (d) / 굴절률 (n):</label>
+          <span class="val-display" style="color: #cbd5e1; min-width: 110px;">5.0 mm / 1.52</span>
+        </div>
+        <div class="control-row">
+          <label>내부 굴절각 / 측면 변위:</label>
+          <span class="val-display" style="color: #cbd5e1; min-width: 110px;">27.8° / 1.65 mm</span>
+        </div>
+      </div>
+
+      <!-- 3. 거울 M1, M2 이동 및 틸트 -->
+      <div class="control-group">
+        <div class="control-title">
+          <span>3. 각 거울 위치 제어 (M1 & M2)</span>
+          <button id="btnResetMirrors" style="padding: 2px 7px; font-size: 0.68rem;">원점 초기화</button>
+        </div>
+        <div class="control-row">
+          <label>M1 이동 (ΔL1):</label>
+          <input type="range" id="rngM1Disp" min="-2.0" max="2.0" step="0.01" value="0.0">
+          <div class="btn-step-group">
+            <button id="btnM1Sub" title="-λ/4 이동">◀</button>
+            <button id="btnM1Add" title="+λ/4 이동">▶</button>
+          </div>
+          <span class="val-display" id="valM1Disp">0.000 μm</span>
+        </div>
+        <div class="control-row">
+          <label>M2 이동 (ΔL2):</label>
+          <input type="range" id="rngM2Disp" min="-2.0" max="2.0" step="0.01" value="0.0">
+          <div class="btn-step-group">
+            <button id="btnM2Sub" title="-λ/4 이동">◀</button>
+            <button id="btnM2Add" title="+λ/4 이동">▶</button>
+          </div>
+          <span class="val-display" id="valM2Disp">0.000 μm</span>
+        </div>
+        <div class="control-row">
+          <label>거울 틸트(줄무늬):</label>
+          <input type="range" id="rngM1Tilt" min="0" max="0.5" step="0.02" value="0.0">
+          <span class="val-display" id="valM1Tilt">0.00 mrad</span>
+        </div>
+      </div>
+
+      <!-- 4. 실험 세트 턴테이블 회전 -->
+      <div class="control-group">
+        <div class="control-title">
+          <span>4. 실험 세트 회전 (Turntable)</span>
+        </div>
+        <div class="control-row">
+          <label>세트 회전각 (θ):</label>
+          <input type="range" id="rngTableAngle" min="0" max="360" step="1" value="0">
+          <span class="val-display" id="valTableAngle">0°</span>
+        </div>
+        <div class="control-row" style="gap: 6px;">
+          <button id="btnRotate90">+90° 회전</button>
+          <button id="btnRotateToggle">🔄 연속 회전 시작</button>
+          <span style="font-size: 0.72rem; color: #94a3b8; margin-left: 4px;">속도:</span>
+          <input type="range" id="rngRotateSpeed" min="0.1" max="1.2" step="0.05" value="0.35" style="width: 60px; accent-color: #38bdf8;" title="턴테이블 회전 속도">
+        </div>
+        <div class="control-row">
+          <div class="radio-switch">
+            <label><input type="radio" name="radPhysics" value="SRT" checked> 특수 상대성 이론 (SRT)</label>
+            <label><input type="radio" name="radPhysics" value="ETHER"> 고전 에테르 가설 (v=30km/s)</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createExperimentStore, EXPERIMENT_PRESETS } from './src/state/ExperimentStore.js';
+    import { renderDetectorCanvas } from './src/renderers/DetectorRenderer.js';
+    import { renderIntensityChart } from './src/renderers/IntensityChartRenderer.js';
+    import {
+      renderOpticalBench,
+      hitTestOpticalBench,
+      computeBenchGeometry,
+      screenToTurntableLocal
+    } from './src/renderers/OpticalBenchRenderer.js';
+
+    const store = createExperimentStore();
+
+    const cardBench = document.getElementById('cardBench');
+    const benchCanvas = document.getElementById('benchCanvas');
+    const benchCtx = benchCanvas.getContext('2d');
+    const benchTooltip = document.getElementById('benchTooltip');
+    const btnFullscreenBench = document.getElementById('btnFullscreenBench');
+    const btnFsExit = document.getElementById('btnFsExit');
+
+    const btnPauseWave = document.getElementById('btnPauseWave');
+    const btnFsPauseWave = document.getElementById('btnFsPauseWave');
+    const rngWaveSpeed = document.getElementById('rngWaveSpeed');
+
+    const detectorCanvas = document.getElementById('detectorCanvas');
+    const detectorCtx = detectorCanvas.getContext('2d');
+
+    const chartCanvas = document.getElementById('chartCanvas');
+    const chartCtx = chartCanvas.getContext('2d');
+
+    const selPreset = document.getElementById('selPreset');
+    const rngWavelength = document.getElementById('rngWavelength');
+    const valWavelength = document.getElementById('valWavelength');
+    const chipLaserColor = document.getElementById('chipLaserColor');
+
+    const rngM1Disp = document.getElementById('rngM1Disp');
+    const rngM2Disp = document.getElementById('rngM2Disp');
+    const valM1Disp = document.getElementById('valM1Disp');
+    const valM2Disp = document.getElementById('valM2Disp');
+    const rngM1Tilt = document.getElementById('rngM1Tilt');
+    const valM1Tilt = document.getElementById('valM1Tilt');
+
+    const rngTableAngle = document.getElementById('rngTableAngle');
+    const valTableAngle = document.getElementById('valTableAngle');
+    const lblTableAngle = document.getElementById('lblTableAngle');
+    const btnRotateToggle = document.getElementById('btnRotateToggle');
+
+    const valCenterIntensity = document.getElementById('valCenterIntensity');
+    const valVisibility = document.getElementById('valVisibility');
+    const valFringeShift = document.getElementById('valFringeShift');
+    const valEtherShift = document.getElementById('valEtherShift');
+    const lblCenterPercent = document.getElementById('lblCenterPercent');
+
+    let isRotating = false;
+    let rotateSpeed = 0.35;
+    let isWavePaused = false;
+    let waveSpeed = 0.04; // 기본 진행 속도를 편안하고 부드럽게 감속
+    let timePhase = 0;
+    let hoveredComponentId = null;
+    let activeDrag = null;
+
+    const rngRotateSpeed = document.getElementById('rngRotateSpeed');
+    rngRotateSpeed.addEventListener('input', (e) => {
+      rotateSpeed = parseFloat(e.target.value);
+    });
+
+    function setTurntableRotationState(rotating) {
+      isRotating = rotating;
+      const text = isRotating ? '⏹ 회전 정지' : '🔄 연속 회전 시작';
+      btnRotateToggle.textContent = text;
+      btnFsRotateToggle.textContent = text;
+      btnRotateToggle.classList.toggle('active', isRotating);
+      btnFsRotateToggle.classList.toggle('active', isRotating);
+    }
+
+    // 시간 정지 토글 함수
+    function toggleWavePause() {
+      isWavePaused = !isWavePaused;
+      const text = isWavePaused ? '▶ 시간 재생' : '⏸ 시간 정지';
+      btnPauseWave.textContent = text;
+      btnFsPauseWave.textContent = text;
+      btnPauseWave.classList.toggle('active', isWavePaused);
+      btnFsPauseWave.classList.toggle('active', isWavePaused);
+    }
+
+    btnPauseWave.addEventListener('click', toggleWavePause);
+    btnFsPauseWave.addEventListener('click', toggleWavePause);
+
+    rngWaveSpeed.addEventListener('input', (e) => {
+      waveSpeed = parseFloat(e.target.value);
+    });
+
+    // 스페이스바로도 손쉽게 시간 일시정지/재생 가능
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+        e.preventDefault();
+        toggleWavePause();
+      }
+    });
+
+    // 전체화면 캔버스 해상도 동적 조정
+    function resizeFullscreenCanvas() {
+      if (cardBench.classList.contains('fullscreen-mode')) {
+        benchCanvas.width = Math.max(960, window.innerWidth - 32);
+        benchCanvas.height = Math.max(680, window.innerHeight - 96);
+      } else {
+        benchCanvas.width = 760;
+        benchCanvas.height = 540;
+      }
+    }
+
+    function toggleBenchFullscreen(enable) {
+      const isCurrentlyFs = cardBench.classList.contains('fullscreen-mode');
+      const targetState = enable !== undefined ? enable : !isCurrentlyFs;
+
+      if (targetState) {
+        cardBench.classList.add('fullscreen-mode');
+        btnFullscreenBench.textContent = '✕ 원래 크기로 축소';
+        resizeFullscreenCanvas();
+      } else {
+        cardBench.classList.remove('fullscreen-mode');
+        btnFullscreenBench.textContent = '⛶ 전체 화면';
+        resizeFullscreenCanvas();
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      if (cardBench.classList.contains('fullscreen-mode')) {
+        resizeFullscreenCanvas();
+      }
+    });
+
+    btnFullscreenBench.addEventListener('click', () => toggleBenchFullscreen());
+    btnFsExit.addEventListener('click', () => toggleBenchFullscreen(false));
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && cardBench.classList.contains('fullscreen-mode')) {
+        toggleBenchFullscreen(false);
+      }
+    });
+
+    document.getElementById('btnFsM1Add').addEventListener('click', () => store.stepMirror1ByQuarterLambda(+1));
+    document.getElementById('btnFsM1Sub').addEventListener('click', () => store.stepMirror1ByQuarterLambda(-1));
+    document.getElementById('btnFsM2Add').addEventListener('click', () => store.stepMirror2ByQuarterLambda(+1));
+    document.getElementById('btnFsM2Sub').addEventListener('click', () => store.stepMirror2ByQuarterLambda(-1));
+    document.getElementById('btnFsRotate90').addEventListener('click', () => {
+      store.setTurntableAngle(store.getConfig().turntable.angleDeg + 90);
+    });
+    document.getElementById('btnFsRotateToggle').addEventListener('click', () => {
+      isRotating = !isRotating;
+      btnRotateToggle.classList.toggle('active', isRotating);
+    });
+
+    function syncUIFromStore(state, metrics, config) {
+      renderDetectorCanvas(detectorCtx, state);
+
+      rngWavelength.value = config.wavelengthNm;
+      valWavelength.textContent = `${config.wavelengthNm.toFixed(0)} nm`;
+      chipLaserColor.style.backgroundColor = state.color.rgb;
+
+      rngM1Disp.value = config.mirror1.deltaLengthUm;
+      rngM2Disp.value = config.mirror2.deltaLengthUm;
+      valM1Disp.textContent = `${config.mirror1.deltaLengthUm.toFixed(3)} μm`;
+      valM2Disp.textContent = `${config.mirror2.deltaLengthUm.toFixed(3)} μm`;
+
+      rngM1Tilt.value = config.mirror1.tiltXMrads;
+      valM1Tilt.textContent = `${config.mirror1.tiltXMrads.toFixed(2)} mrad`;
+
+      rngTableAngle.value = config.turntable.angleDeg;
+      valTableAngle.textContent = `${config.turntable.angleDeg.toFixed(0)}°`;
+      lblTableAngle.textContent = `${config.turntable.angleDeg.toFixed(1)}°`;
+
+      document.querySelectorAll('input[name="radPhysics"]').forEach((radio) => {
+        radio.checked = radio.value === config.turntable.physicsMode;
+      });
+
+      valCenterIntensity.textContent = metrics.centerIntensityLabel;
+      lblCenterPercent.textContent = `중심 조도: ${metrics.centerIntensityLabel}`;
+      valVisibility.textContent = metrics.visibilityLabel;
+      valFringeShift.textContent = metrics.totalFringeShiftLabel;
+      valEtherShift.textContent = metrics.etherFringeShiftLabel;
+    }
+
+    store.subscribe(syncUIFromStore);
+
+    selPreset.addEventListener('change', (e) => {
+      const preset = EXPERIMENT_PRESETS[e.target.value];
+      if (preset) {
+        store.loadPreset(e.target.value);
+        benchTooltip.innerHTML = `<span>📌 <strong>${preset.name}:</strong> ${preset.description}</span>`;
+        // 프리셋 4번 및 5번은 턴테이블 연속 회전 자동 시작!
+        if (preset.autoRotate) {
+          setTurntableRotationState(true);
+        } else {
+          setTurntableRotationState(false);
+        }
+      }
+    });
+
+    rngWavelength.addEventListener('input', (e) => store.setWavelength(e.target.value));
+    document.getElementById('btnLaserRed').addEventListener('click', () => store.setWavelength(632.8));
+    document.getElementById('btnLaserGreen').addEventListener('click', () => store.setWavelength(532.0));
+    document.getElementById('btnLaserBlue').addEventListener('click', () => store.setWavelength(450.0));
+
+    rngM1Disp.addEventListener('input', (e) => store.setMirror1Displacement(e.target.value));
+    rngM2Disp.addEventListener('input', (e) => store.setMirror2Displacement(e.target.value));
+    document.getElementById('btnM1Add').addEventListener('click', () => store.stepMirror1ByQuarterLambda(+1));
+    document.getElementById('btnM1Sub').addEventListener('click', () => store.stepMirror1ByQuarterLambda(-1));
+    document.getElementById('btnM2Add').addEventListener('click', () => store.stepMirror2ByQuarterLambda(+1));
+    document.getElementById('btnM2Sub').addEventListener('click', () => store.stepMirror2ByQuarterLambda(-1));
+
+    document.getElementById('btnResetMirrors').addEventListener('click', () => {
+      store.update({
+        mirror1: { ...store.getConfig().mirror1, deltaLengthUm: 0, tiltXMrads: 0 },
+        mirror2: { ...store.getConfig().mirror2, deltaLengthUm: 0, tiltXMrads: 0 }
+      });
+    });
+
+    rngM1Tilt.addEventListener('input', (e) => store.setMirrorTilt(e.target.value));
+    rngTableAngle.addEventListener('input', (e) => store.setTurntableAngle(e.target.value));
+
+    document.getElementById('btnRotate90').addEventListener('click', () => {
+      store.setTurntableAngle(store.getConfig().turntable.angleDeg + 90);
+    });
+
+    btnRotateToggle.addEventListener('click', () => {
+      setTurntableRotationState(!isRotating);
+    });
+
+    document.querySelectorAll('input[name="radPhysics"]').forEach((radio) => {
+      radio.addEventListener('change', (e) => store.setPhysicsMode(e.target.value));
+    });
+
+    document.getElementById('btnPopoutDetector').addEventListener('click', () => {
+      window.open('./detector.html', 'DetectorMonitorWindow', 'width=1020,height=600,resizable=yes');
+    });
+
+    function getCanvasMousePos(evt) {
+      const rect = benchCanvas.getBoundingClientRect();
+      const scaleX = benchCanvas.width / rect.width;
+      const scaleY = benchCanvas.height / rect.height;
+      return {
+        x: (evt.clientX - rect.left) * scaleX,
+        y: (evt.clientY - rect.top) * scaleY
+      };
+    }
+
+    benchCanvas.addEventListener('mousedown', (evt) => {
+      const pos = getCanvasMousePos(evt);
+      const state = store.getState();
+      const hit = hitTestOpticalBench(pos.x, pos.y, benchCanvas.width, benchCanvas.height, state);
+      if (!hit) return;
+
+      const geom = computeBenchGeometry(benchCanvas.width, benchCanvas.height, state);
+      const local = screenToTurntableLocal(pos.x, pos.y, geom);
+
+      if (hit.id === 'mirror1' || hit.id === 'mirror2' || hit.id === 'turntable') {
+        activeDrag = {
+          type: hit.id,
+          startLocalX: local.localX,
+          startLocalY: local.localY,
+          startWorldAngle: local.worldAngleRad,
+          initialDelta1: state.config.mirror1.deltaLengthUm,
+          initialDelta2: state.config.mirror2.deltaLengthUm,
+          initialTableAngle: state.config.turntable.angleDeg
+        };
+      }
+    });
+
+    window.addEventListener('mousemove', (evt) => {
+      const pos = getCanvasMousePos(evt);
+      const state = store.getState();
+
+      if (activeDrag) {
+        const geom = computeBenchGeometry(benchCanvas.width, benchCanvas.height, state);
+        const local = screenToTurntableLocal(pos.x, pos.y, geom);
+
+        if (activeDrag.type === 'mirror1') {
+          const dyPx = activeDrag.startLocalY - local.localY;
+          const nextDelta = Math.max(-2.0, Math.min(2.0, activeDrag.initialDelta1 + (dyPx / geom.scale) * 0.04));
+          store.setMirror1Displacement(nextDelta);
+        } else if (activeDrag.type === 'mirror2') {
+          const dxPx = local.localX - activeDrag.startLocalX;
+          const nextDelta = Math.max(-2.0, Math.min(2.0, activeDrag.initialDelta2 + (dxPx / geom.scale) * 0.04));
+          store.setMirror2Displacement(nextDelta);
+        } else if (activeDrag.type === 'turntable') {
+          const dAngleDeg = ((local.worldAngleRad - activeDrag.startWorldAngle) * 180) / Math.PI;
+          store.setTurntableAngle(activeDrag.initialTableAngle + dAngleDeg);
+        }
+        return;
+      }
+
+      const hit = hitTestOpticalBench(pos.x, pos.y, benchCanvas.width, benchCanvas.height, state);
+      if (hit) {
+        hoveredComponentId = hit.id;
+        benchCanvas.style.cursor = hit.cursor;
+        benchTooltip.innerHTML = `<span>🔍 <strong>${hit.title}:</strong> ${hit.detail}</span>`;
+      } else {
+        hoveredComponentId = null;
+        benchCanvas.style.cursor = 'default';
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      activeDrag = null;
+    });
+
+    // 실시간 애니메이션 루프
+    function animationLoop() {
+      // 시간이 정지 상태가 아닐 때만 timePhase를 증가시킴
+      if (!isWavePaused) {
+        timePhase = (timePhase + waveSpeed) % (Math.PI * 200);
+      }
+
+      if (isRotating) {
+        store.setTurntableAngle(store.getConfig().turntable.angleDeg + rotateSpeed);
+      }
+
+      const state = store.getState();
+
+      renderOpticalBench(benchCtx, state, {
+        timePhase,
+        hoveredComponentId
+      });
+
+      renderIntensityChart(chartCtx, state, {
+        timePhase
+      });
+
+      requestAnimationFrame(animationLoop);
+    }
+
+    syncUIFromStore(store.getState(), store.getMetrics(), store.getConfig());
+    animationLoop();
+  </script>
+</body>
+</html>
