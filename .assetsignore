@@ -1,0 +1,8 @@
+node_modules
+tests
+server.js
+package.json
+.git
+.gitignore
+wrangler.jsonc
+*.log
